@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Прогноз клёва рыбы</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="logo.png" alt="Прогноз клёва" class="site-logo">
+            <h1>Прогноз клёва рыбы</h1>
+            <p>Введите населённый пункт и выберите рыбу, чтобы получить прогноз на ближайшее время.</p>
+        </header>
+
+        <form id="forecast-form" class="forecast-form">
+            <div class="form-group">
+                <label for="city-input">Город или населённый пункт</label>
+                <input 
+                    type="text" 
+                    id="city-input" 
+                    placeholder="Например, Москва, Казань, Минск" 
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="fish-type">Вид рыбы</label>
+                <select id="fish-type">
+                    <option value="щука">🦈 Щука</option>
+                    <option value="окунь">🐠 Окунь</option>
+                    <option value="карп">🐟 Карп</option>
+                    <option value="плотва">🐠 Плотва</option>
+                    <option value="судак">🦈 Судак</option>
+                    <option value="карась">🐠 Карась</option>
+                    <option value="лещ">🐟 Лещ</option>
+                </select>
+            </div>
+
+            <button type="submit" class="submit-btn">
+                🎣 Получить прогноз
+            </button>
+
+            <div class="forecast-period">
+                <button type="button" class="period-btn active" data-days="1">📅 Сегодня</button>
+                <button type="button" class="period-btn" data-days="5">📆 5 дней</button>
+                <button type="button" class="period-btn" data-days="10">📊 10 дней</button>
+            </div>
+        </form>
+
+        <div id="status-message" class="status-message"></div>
+
+        <section id="results-section" class="results-section hidden">
+            <h2 id="location-title"></h2>
+            <p id="forecast-time" class="forecast-time"></p>
+
+            <div class="weather-grid">
+                <div class="weather-card">
+                    <span class="weather-icon">🌡️</span>
+                    <div class="weather-label">Температура</div>
+                    <div id="temperature" class="weather-value"></div>
+                </div>
+
+                <div class="weather-card">
+                    <span class="weather-icon">📉</span>
+                    <div class="weather-label">Давление</div>
+                    <div id="pressure" class="weather-value"></div>
+                </div>
+
+                <div class="weather-card">
+                    <span class="weather-icon">💨</span>
+                    <div class="weather-label">Ветер</div>
+                    <div id="wind" class="weather-value"></div>
+                </div>
+
+                <div class="weather-card">
+                    <span class="weather-icon">☁️</span>
+                    <div class="weather-label">Облачность</div>
+                    <div id="cloudcover" class="weather-value"></div>
+                </div>
+            </div>
+
+            <div class="moon-section">
+                <h3>🌙 Луна</h3>
+                <div class="moon-info">
+                    <span id="moon-phase"></span> • Освещённость: <span id="moon-illumination"></span>%
+                </div>
+            </div>
+
+            <div class="fishing-index-section">
+                <h3>🎯 Индекс клёва</h3>
+                <div class="index-container">
+                    <div id="fishing-index" class="index-value">0</div>
+                    <div class="index-progress">
+                        <div id="index-progress" class="index-progress-bar"></div>
+                    </div>
+                    <div id="index-label" class="index-label"></div>
+                </div>
+            </div>
+
+            <div class="recommendation-section">
+                <h3>💡 Рекомендации</h3>
+                <p id="recommendation" class="recommendation-text"></p>
+            </div>
+
+            <div class="local-time">
+                Местное время: <span id="local-time"></span>
+            </div>
+        </section>
+
+        <footer>
+            <p>Данные погоды: сервис <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a></p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
