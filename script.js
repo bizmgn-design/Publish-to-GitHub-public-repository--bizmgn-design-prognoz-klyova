@@ -14,7 +14,7 @@ document.querySelectorAll('.period-btn').forEach(btn => {
         document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         selectedDays = parseInt(btn.dataset.days);
-        console.log('Выбран период:', selectedDays, 'дней');
+        console.log('✅ Выбран период:', selectedDays, 'дней');
     });
 });
 
@@ -44,30 +44,54 @@ form.addEventListener('submit', async (e) => {
     const city = cityInput.value.trim();
     const fishType = fishSelect.value;
     
+    console.log(' Запрос прогноза для:', city, fishType);
+    
     if (!city) {
-        showStatus('Введите название города', 'error');
+        showStatus('⚠️ Введите название города', 'error');
         return;
     }
     
-    showStatus('Загрузка прогноза...', 'success');
+    showStatus('⏳ Загрузка прогноза...', 'success');
     
     try {
-        // Геокодинг (преобразуем город в координаты)
-        const geoResponse = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru&format=json`);
+        // Шаг 1: Геокодинг
+        console.log('📍 Геокодинг города:', city);
+        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru&format=json`;
+        console.log('🔗 URL геокодинга:', geoUrl);
+        
+        const geoResponse = await fetch(geoUrl);
+        
+        if (!geoResponse.ok) {
+            throw new Error(`Геокодинг: HTTP ${geoResponse.status}`);
+        }
+        
         const geoData = await geoResponse.json();
+        console.log('📍 Данные геокодинга:', geoData);
         
         if (!geoData.results || geoData.results.length === 0) {
-            showStatus('Город не найден. Попробуйте другое название.', 'error');
+            showStatus('❌ Город не найден. Попробуйте другое название (например: Москва, Казань, Минск).', 'error');
             return;
         }
         
         const { latitude, longitude, name, country } = geoData.results[0];
+        console.log('✅ Координаты:', latitude, longitude, name, country);
         
-        // Получаем данные погоды
-        const weatherResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,pressure_msl,cloud_cover,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,pressure_msl_mean,wind_speed_10m_max&timezone=auto&forecast_days=${selectedDays}`);
+        // Шаг 2: Получаем данные погоды
+        console.log('🌤️ Загрузка данных погоды...');
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,pressure_msl,cloud_cover,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,pressure_msl_mean,wind_speed_10m_max&timezone=auto&forecast_days=${selectedDays}`;
+        console.log('🔗 URL погоды:', weatherUrl);
+        
+        const weatherResponse = await fetch(weatherUrl);
+        
+        if (!weatherResponse.ok) {
+            throw new Error(`Погода: HTTP ${weatherResponse.status}`);
+        }
+        
         const weatherData = await weatherResponse.json();
+        console.log('✅ Данные погоды получены:', weatherData);
         
-        // Отображаем результат
+        // Шаг 3: Отображаем результат
+        console.log('📊 Отображение прогноза...');
         displayForecast({
             location: `${name}, ${country}`,
             latitude,
@@ -76,11 +100,12 @@ form.addEventListener('submit', async (e) => {
             fishType
         });
         
-        showStatus('Прогноз успешно загружен!', 'success');
+        showStatus('✅ Прогноз успешно загружен!', 'success');
+        console.log('✅ Готово!');
         
     } catch (error) {
-        console.error('Ошибка:', error);
-        showStatus('Ошибка при загрузке данных. Проверьте интернет-соединение.', 'error');
+        console.error('❌ Ошибка:', error);
+        showStatus(`❌ Ошибка: ${error.message}. Проверьте интернет-соединение и попробуйте снова.`, 'error');
     }
 });
 
@@ -90,6 +115,8 @@ function displayForecast(data) {
     const current = weather.current;
     const hourly = weather.hourly;
     const daily = weather.daily;
+    
+    console.log('📊 Отображение данных для:', location);
     
     // Заголовок
     document.getElementById('location-title').textContent = `${getFishEmoji(fishType)} ${capitalize(fishType)} • ${location}`;
@@ -101,16 +128,17 @@ function displayForecast(data) {
     document.getElementById('wind').textContent = `${Math.round(current.wind_speed_10m)} м/с`;
     document.getElementById('cloudcover').textContent = `${current.cloud_cover}%`;
     
-    // Луна (упрощённо)
+    // Луна
     const moonPhase = getMoonPhase();
     document.getElementById('moon-phase').textContent = moonPhase.phase;
     document.getElementById('moon-illumination').textContent = moonPhase.illumination;
     
     // Индекс клёва
     const fishingIndex = calculateFishingIndex(fishType, current, fishPreferences[fishType]);
+    console.log('🎣 Индекс клёва:', fishingIndex);
     displayFishingIndex(fishingIndex);
     
-    // Рекомендации (ИСПРАВЛЕНО - теперь с описанием рыбы!)
+    // Рекомендации
     const recommendation = createRecommendation(fishType, current.temperature_2m, current.pressure_msl, current.cloud_cover, moonPhase.phase);
     document.getElementById('recommendation').innerHTML = recommendation;
     
@@ -128,7 +156,7 @@ function displayForecast(data) {
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
-// === Создание рекомендаций (ИСПРАВЛЕНО) ===
+// === Создание рекомендаций ===
 function createRecommendation(fishType, temp, pressure, cloudcover, moonPhase) {
     const fishData = fishPreferences[fishType];
     
@@ -138,10 +166,8 @@ function createRecommendation(fishType, temp, pressure, cloudcover, moonPhase) {
     const pressureOptimal = fishData.pressureOptimal;
     const pressureDiff = pressure - pressureOptimal;
     
-    // Формируем текст с описанием рыбы
     let recommendation = `<strong>🐟 ${fishData.description}</strong><br><br>`;
     
-    // Добавляем условия
     if (Math.abs(tempDiff) <= 5) {
         recommendation += '✅ Температура воды благоприятная. ';
     } else if (tempDiff > 5) {
@@ -178,7 +204,6 @@ function calculateFishingIndex(fishType, current, fishData) {
     const tempDiff = Math.abs(current.temperature_2m - fishData.tempOptimal);
     const pressureDiff = Math.abs(current.pressure_msl - fishData.pressureOptimal);
     
-    // Температура
     if (tempDiff <= fishData.tempTolerance) {
         index += 20;
     } else if (tempDiff <= fishData.tempTolerance * 2) {
@@ -187,7 +212,6 @@ function calculateFishingIndex(fishType, current, fishData) {
         index -= 20;
     }
     
-    // Давление
     if (pressureDiff <= 5) {
         index += 20;
     } else if (pressureDiff <= 10) {
@@ -196,14 +220,12 @@ function calculateFishingIndex(fishType, current, fishData) {
         index -= 20;
     }
     
-    // Облачность
     if (current.cloud_cover >= 40 && current.cloud_cover <= 70) {
         index += 10;
     } else if (current.cloud_cover > 80) {
         index += 5;
     }
     
-    // Ветер
     if (current.wind_speed_10m <= 5) {
         index += 10;
     } else if (current.wind_speed_10m <= 10) {
@@ -224,11 +246,9 @@ function displayFishingIndex(index) {
     indexElement.textContent = index;
     progressBar.style.width = `${index}%`;
     
-    // Удаляем старые классы
     indexElement.classList.remove('excellent', 'good', 'medium', 'poor');
     indexLabel.classList.remove('excellent', 'good', 'medium', 'poor');
     
-    // Добавляем новые классы
     if (index >= 76) {
         indexElement.classList.add('excellent');
         indexLabel.textContent = 'Отличный клёв';
@@ -274,7 +294,6 @@ function displayMultiDayForecast(daily, fishType) {
         const wind = Math.round(daily.wind_speed_10m_max[i]);
         const pressure = Math.round(daily.pressure_msl_mean[i]);
         
-        // Рассчитываем индекс клёва для каждого дня
         const dayIndex = calculateDailyFishingIndex(fishType, tempMax, tempMin, pressure, wind);
         
         const dayCard = document.createElement('div');
@@ -394,4 +413,4 @@ function getDayDeclension(days) {
 }
 
 // === Инициализация ===
-console.log('🎣 Прогноз клёва рыбы загружен!');
+console.log('🎣 Прогноз клёва рыбы загружен! Готов к работе.');
