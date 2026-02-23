@@ -426,3 +426,18 @@ footer a:hover {
     color: #888;
     margin-top: 5px;
 }
+/* === Убираем белый фон у полей === */
+#city-input,
+#fish-type {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #fff !important;
+}
+
+#city-input::placeholder {
+    color: #888 !important;
+}
+
+#fish-type option {
+    background-color: #1a1a2e !important;
+    color: #fff !important;
+}
