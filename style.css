@@ -441,3 +441,32 @@ footer a:hover {
     background-color: #1a1a2e !important;
     color: #fff !important;
 }
+/* === ФИКС БЕЛОГО ФОНА === */
+#city-input {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+#city-input::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+#city-input:-webkit-autofill,
+#city-input:-webkit-autofill:hover,
+#city-input:-webkit-autofill:focus,
+#city-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.05) inset !important;
+    -webkit-text-fill-color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+#fish-type {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff !important;
+}
+
+#fish-type option {
+    background: #1a1a2e !important;
+    color: #ffffff !important;
+}

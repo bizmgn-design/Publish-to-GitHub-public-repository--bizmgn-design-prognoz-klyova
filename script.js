@@ -65,7 +65,7 @@ form.addEventListener('submit', async (e) => {
     showStatus('⏳ Загрузка прогноза...', 'success');
     
     try {
-        // Шаг 1: Геокодинг
+        // Шаг 1: Геокодинг 
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru&format=json`;
         const geoData = await fetchWithProxy(geoUrl);
         
