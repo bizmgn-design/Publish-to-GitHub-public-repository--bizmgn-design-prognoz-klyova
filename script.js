@@ -8,6 +8,7 @@ const resultsSection = document.getElementById('results-section');
 let selectedDays = 1;
 const API_KEY = '088682cd6fe0244781f86dff5f5eacb3';
 
+// === Кнопки периода ===
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
@@ -16,6 +17,7 @@ document.querySelectorAll('.period-btn').forEach(btn => {
     });
 });
 
+// === Рыбы ===
 const fishPreferences = {
     щука: { tempOptimal: 12, tempTolerance: 10, pressureOptimal: 755, description: "Хищник, активна в прохладной воде. Лучше клюёт при переменной облачности." },
     окунь: { tempOptimal: 15, tempTolerance: 8, pressureOptimal: 755, description: "Активен круглый год. Предпочитает тихую воду без сильного течения." },
@@ -34,6 +36,7 @@ const fishPreferences = {
     сазан: { tempOptimal: 22, tempTolerance: 10, pressureOptimal: 755, description: "Крупный и сильный. Активен в тёплой воде, предпочитает тихие заводи." }
 };
 
+// === Обработка формы ===
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -45,7 +48,6 @@ form.addEventListener('submit', async (e) => {
         return;
     }
     
-    // OpenWeather даёт максимум 5 дней (120 часов / 24 = 5 дней)
     const daysToRequest = Math.min(selectedDays, 5);
     
     showStatus('⏳ Загрузка прогноза...', 'success');
@@ -82,6 +84,7 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
+// === Иконки погоды ===
 function getWeatherIcon(iconCode) {
     const iconMap = {
         '01d': '☀️', '01n': '🌙',
@@ -97,6 +100,7 @@ function getWeatherIcon(iconCode) {
     return iconMap[iconCode] || '🌤️';
 }
 
+// === Отображение прогноза ===
 function displayForecast(data) {
     const { location, weather, fishType, requestedDays, actualDays } = data;
     const current = weather.list[0];
@@ -110,7 +114,6 @@ function displayForecast(data) {
     
     document.getElementById('location-title').textContent = `${getFishEmoji(fishType)} ${capitalize(fishType)} • ${location}`;
     
-    // Показываем сколько дней доступно
     const daysText = requestedDays > actualDays ? 
         `прогноз на ${actualDays} ${getDayDeclension(actualDays)} (макс. доступно)` :
         `прогноз на ${requestedDays} ${getDayDeclension(requestedDays)}`;
@@ -148,6 +151,7 @@ function displayForecast(data) {
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
+// === Рекомендации ===
 function createRecommendation(fish, temp, pressure, cloud, moon) {
     const f = fishPreferences[fish];
     let r = `<strong>🐟 ${f.description}</strong><br><br>`;
@@ -163,6 +167,7 @@ function createRecommendation(fish, temp, pressure, cloud, moon) {
     return r;
 }
 
+// === Расчёт индекса ===
 function calculateIndex(fish, current, f) {
     let i = 50;
     const tDiff = Math.abs(current.temperature_2m - f.tempOptimal);
@@ -186,6 +191,7 @@ function calculateIndex(fish, current, f) {
     return Math.max(0, Math.min(100, i));
 }
 
+// === Отображение индекса ===
 function displayIndex(index) {
     const el = document.getElementById('fishing-index');
     const bar = document.getElementById('index-progress');
@@ -216,6 +222,7 @@ function displayIndex(index) {
     }
 }
 
+// === Прогноз на несколько дней (ДОБАВЛЕНО!) ===
 function displayMultiDay(list, fishType, maxDays) {
     let section = document.querySelector('.multi-day-forecast');
     
@@ -256,13 +263,16 @@ function displayMultiDay(list, fishType, maxDays) {
         const day = days[dateStr];
         const maxTemp = Math.max(...day.temps);
         const minTemp = Math.min(...day.temps);
-        const avgPressure = day.pressures.reduce((a, b) => a + b, 0) / day.pressures.length;
+        
+        const avgPressureHpa = day.pressures.reduce((a, b) => a + b, 0) / day.pressures.length;
+        const avgPressureMmHg = Math.round(avgPressureHpa * 0.750062);
+        
         const maxWind = Math.max(...day.winds);
         const mainIcon = day.icons[0];
         
         const dayName = count === 0 ? 'Сегодня' : count === 1 ? 'Завтра' : day.date.toLocaleDateString('ru', { weekday: 'short', day: 'numeric', month: 'short' });
         
-        const index = calculateDailyIndex(fishType, maxTemp, minTemp, avgPressure, maxWind);
+        const index = calculateDailyIndex(fishType, maxTemp, minTemp, avgPressureHpa, maxWind);
         const weatherIcon = getWeatherIcon(mainIcon);
         
         const card = document.createElement('div');
@@ -273,6 +283,7 @@ function displayMultiDay(list, fishType, maxDays) {
             <div class="day-index ${getIndexClass(index)}" style="font-size: 1.5rem; font-weight: bold; margin: 10px 0;">${index}</div>
             <div class="day-temp" style="margin: 5px 0;">${Math.round(maxTemp)}° / ${Math.round(minTemp)}°</div>
             <div class="day-wind" style="margin: 5px 0;">💨 ${Math.round(maxWind)} м/с</div>
+            <div class="day-pressure" style="margin: 5px 0; color: #888; font-size: 0.9rem;">📉 ${avgPressureMmHg} мм</div>
         `;
         
         grid.appendChild(card);
@@ -280,6 +291,7 @@ function displayMultiDay(list, fishType, maxDays) {
     }
 }
 
+// === Расчёт индекса для дня ===
 function calculateDailyIndex(fish, maxTemp, minTemp, pressure, wind) {
     const f = fishPreferences[fish];
     let i = 50;
@@ -310,6 +322,7 @@ function getIndexClass(i) {
     return 'poor';
 }
 
+// === Вспомогательные функции ===
 function showStatus(msg, type) {
     statusMessage.textContent = msg;
     statusMessage.className = `status-message show ${type}`;

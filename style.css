@@ -408,3 +408,21 @@ footer a:hover {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+/* Стили для select с рыбами */
+#fish-type {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #fff !important;
+}
+
+#fish-type option {
+    background-color: #1a1a2e !important;
+    color: #fff !important;
+    padding: 10px;
+}
+
+/* Улучшенные карточки дней */
+.day-pressure {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 5px;
+}
