@@ -82,6 +82,24 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
+// === Получение иконки погоды ===
+function getWeatherIcon(iconCode, description) {
+    // OpenWeather иконки: https://openweathermap.org/weather-conditions
+    const iconMap = {
+        '01d': '☀️', '01n': '🌙',  // Ясно
+        '02d': '⛅', '02n': '☁️',  // Переменная облачность
+        '03d': '☁️', '03n': '☁️',  // Облачно
+        '04d': '☁️', '04n': '☁️',  // Пасмурно
+        '09d': '🌧️', '09n': '🌧️',  // Дождь
+        '10d': '🌦️', '10n': '🌧️',  // Дождь с грозой
+        '11d': '⛈️', '11n': '⛈️',  // Гроза
+        '13d': '🌨️', '13n': '🌨️',  // Снег
+        '50d': '🌫️', '50n': '🌫️'   // Туман
+    };
+    
+    return iconMap[iconCode] || '🌤️';
+}
+
 // === Отображение прогноза ===
 function displayForecast(data) {
     const { location, weather, fishType } = data;
@@ -92,18 +110,27 @@ function displayForecast(data) {
     const windSpeed = Math.round(current.wind.speed);
     const cloudCover = current.clouds.all;
     
+    // Получаем иконку погоды
+    const weatherIcon = getWeatherIcon(current.weather[0].icon, current.weather[0].description);
+    
+    // Заголовок
     document.getElementById('location-title').textContent = `${getFishEmoji(fishType)} ${capitalize(fishType)} • ${location}`;
     document.getElementById('forecast-time').textContent = `${getLocalTime()} • прогноз на ${selectedDays} ${getDayDeclension(selectedDays)}`;
     
-    document.getElementById('temperature').textContent = `${tempCelsius}°C`;
-    document.getElementById('pressure').textContent = `${pressureMmHg} мм рт.ст.`;
-    document.getElementById('wind').textContent = `${windSpeed} м/с`;
-    document.getElementById('cloudcover').textContent = `${cloudCover}%`;
+    // Погода с иконками
+    const tempEl = document.getElementById('temperature');
+    tempEl.textContent = `${weatherIcon} ${tempCelsius}°C`;
     
+    document.getElementById('pressure').textContent = `📉 ${pressureMmHg} мм рт.ст.`;
+    document.getElementById('wind').textContent = `💨 ${windSpeed} м/с`;
+    document.getElementById('cloudcover').textContent = `☁️ ${cloudCover}%`;
+    
+    // Луна
     const moon = getMoonPhase();
     document.getElementById('moon-phase').textContent = moon.phase;
     document.getElementById('moon-illumination').textContent = moon.illumination;
     
+    // Индекс клёва
     const index = calculateIndex(fishType, {
         temperature_2m: tempCelsius,
         pressure_msl: pressureMmHg,
@@ -113,20 +140,25 @@ function displayForecast(data) {
     
     displayIndex(index);
     
+    // Рекомендации
     const rec = createRecommendation(fishType, tempCelsius, pressureMmHg, cloudCover, moon.phase);
     document.getElementById('recommendation').innerHTML = rec;
     
+    // Местное время
     document.getElementById('local-time').textContent = getLocalTime();
     
+    // Прогноз на несколько дней
     if (selectedDays > 1) {
         displayMultiDay(weather.list, fishType);
     }
     
+    // Показываем секцию
     resultsSection.classList.remove('hidden');
     resultsSection.classList.add('fade-in');
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
+// === Рекомендации ===
 function createRecommendation(fish, temp, pressure, cloud, moon) {
     const f = fishPreferences[fish];
     let r = `<strong>🐟 ${f.description}</strong><br><br>`;
@@ -142,6 +174,7 @@ function createRecommendation(fish, temp, pressure, cloud, moon) {
     return r;
 }
 
+// === Расчёт индекса ===
 function calculateIndex(fish, current, f) {
     let i = 50;
     const tDiff = Math.abs(current.temperature_2m - f.tempOptimal);
@@ -165,6 +198,7 @@ function calculateIndex(fish, current, f) {
     return Math.max(0, Math.min(100, i));
 }
 
+// === Отображение индекса ===
 function displayIndex(index) {
     const el = document.getElementById('fishing-index');
     const bar = document.getElementById('index-progress');
@@ -195,6 +229,7 @@ function displayIndex(index) {
     }
 }
 
+// === Прогноз на несколько дней ===
 function displayMultiDay(list, fishType) {
     let section = document.querySelector('.multi-day-forecast');
     
@@ -217,13 +252,15 @@ function displayMultiDay(list, fishType) {
                 date: date,
                 temps: [],
                 pressures: [],
-                winds: []
+                winds: [],
+                icons: []
             };
         }
         
         days[dateStr].temps.push(item.main.temp);
         days[dateStr].pressures.push(item.press * 0.750062);
         days[dateStr].winds.push(item.wind.speed);
+        days[dateStr].icons.push(item.weather[0].icon);
     });
     
     let count = 0;
@@ -235,15 +272,18 @@ function displayMultiDay(list, fishType) {
         const minTemp = Math.min(...day.temps);
         const avgPressure = day.pressures.reduce((a, b) => a + b, 0) / day.pressures.length;
         const maxWind = Math.max(...day.winds);
+        const mainIcon = day.icons[0]; // Берём первую иконку дня
         
         const dayName = count === 0 ? 'Сегодня' : count === 1 ? 'Завтра' : day.date.toLocaleDateString('ru', { weekday: 'short', day: 'numeric', month: 'short' });
         
         const index = calculateDailyIndex(fishType, maxTemp, minTemp, avgPressure, maxWind);
+        const weatherIcon = getWeatherIcon(mainIcon);
         
         const card = document.createElement('div');
         card.className = 'day-card';
         card.innerHTML = `
             <div class="day-name">${dayName}</div>
+            <div class="day-icon">${weatherIcon}</div>
             <div class="day-index ${getIndexClass(index)}">${index}</div>
             <div class="day-temp">${Math.round(maxTemp)}° / ${Math.round(minTemp)}°</div>
             <div class="day-wind">💨 ${Math.round(maxWind)} м/с</div>
@@ -283,6 +323,7 @@ function getIndexClass(i) {
     return 'poor';
 }
 
+// === Вспомогательные функции ===
 function showStatus(msg, type) {
     statusMessage.textContent = msg;
     statusMessage.className = `status-message show ${type}`;
@@ -325,4 +366,4 @@ function getDayDeclension(d) {
     return 'дней';
 }
 
-console.log('🎣 Прогноз клёва рыбы загружен! API: OpenWeather');
+console.log('🎣 Прогноз клёва рыбы загружен! API: OpenWeather + Иконки ☀️');
