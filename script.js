@@ -5,10 +5,12 @@ const fishSelect = document.getElementById('fish-type');
 const statusMessage = document.getElementById('status-message');
 const resultsSection = document.getElementById('results-section');
 
-// === Переменная для выбранного периода ===
 let selectedDays = 1;
 
-// === Обработчики кнопок периода ===
+// === API ключ OpenWeather ===
+const API_KEY = '088682cd6fe0244781f86dff5f5eacb3';
+
+// === Кнопки периода ===
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
@@ -17,7 +19,7 @@ document.querySelectorAll('.period-btn').forEach(btn => {
     });
 });
 
-// === Предпочтения рыб (15 видов) ===
+// === Рыбы ===
 const fishPreferences = {
     щука: { tempOptimal: 12, tempTolerance: 10, pressureOptimal: 755, description: "Хищник, активна в прохладной воде. Лучше клюёт при переменной облачности." },
     окунь: { tempOptimal: 15, tempTolerance: 8, pressureOptimal: 755, description: "Активен круглый год. Предпочитает тихую воду без сильного течения." },
@@ -51,171 +53,149 @@ form.addEventListener('submit', async (e) => {
     showStatus('⏳ Загрузка прогноза...', 'success');
     
     try {
-        // Геокодинг через CORS proxy
-        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru&format=json`;
-        const geoResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(geoUrl)}`);
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric&lang=ru&cnt=${selectedDays * 8}`;
         
-        if (!geoResponse.ok) throw new Error('Не удалось получить координаты города');
+        const response = await fetch(weatherUrl);
         
-        const geoData = await geoResponse.json();
-        const geoResult = JSON.parse(geoData.contents);
+        if (!response.ok) {
+            throw new Error(`Ошибка API: ${response.status}`);
+        }
         
-        if (!geoResult.results || geoResult.results.length === 0) {
-            showStatus('❌ Город не найден. Попробуйте: Москва, Санкт-Петербург, Казань', 'error');
+        const data = await response.json();
+        
+        if (!data.list || data.list.length === 0) {
+            showStatus('❌ Город не найден', 'error');
             return;
         }
         
-        const { latitude, longitude, name, country } = geoResult.results[0];
-        
-        // Погода через CORS proxy
-        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,pressure_msl,cloud_cover,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,pressure_msl_mean,wind_speed_10m_max&timezone=auto&forecast_days=${selectedDays}`;
-        
-        const weatherResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(weatherUrl)}`);
-        
-        if (!weatherResponse.ok) throw new Error('Не удалось получить данные погоды');
-        
-        const weatherData = await weatherResponse.json();
-        const weather = JSON.parse(weatherData.contents);
-        
-        // Отображаем результат
         displayForecast({
-            location: `${name}, ${country}`,
-            weather: weather,
+            location: `${data.city.name}, ${data.city.country}`,
+            weather: data,
             fishType
         });
         
-        showStatus('✅ Прогноз успешно загружен!', 'success');
+        showStatus('✅ Прогноз загружен!', 'success');
         
     } catch (error) {
         console.error('Ошибка:', error);
-        showStatus('❌ Ошибка при загрузке. Проверьте интернет и попробуйте снова.', 'error');
+        showStatus('❌ Ошибка при загрузке. Проверьте название города.', 'error');
     }
 });
 
 // === Отображение прогноза ===
 function displayForecast(data) {
     const { location, weather, fishType } = data;
-    const current = weather.current;
-    const daily = weather.daily;
+    const current = weather.list[0];
     
-    // Заголовок
+    const pressureMmHg = Math.round(current.press * 0.750062);
+    const tempCelsius = Math.round(current.main.temp);
+    const windSpeed = Math.round(current.wind.speed);
+    const cloudCover = current.clouds.all;
+    
     document.getElementById('location-title').textContent = `${getFishEmoji(fishType)} ${capitalize(fishType)} • ${location}`;
     document.getElementById('forecast-time').textContent = `${getLocalTime()} • прогноз на ${selectedDays} ${getDayDeclension(selectedDays)}`;
     
-    // Погода
-    document.getElementById('temperature').textContent = `${Math.round(current.temperature_2m)}°C`;
-    document.getElementById('pressure').textContent = `${Math.round(current.pressure_msl)} мм рт.ст.`;
-    document.getElementById('wind').textContent = `${Math.round(current.wind_speed_10m)} м/с`;
-    document.getElementById('cloudcover').textContent = `${current.cloud_cover}%`;
+    document.getElementById('temperature').textContent = `${tempCelsius}°C`;
+    document.getElementById('pressure').textContent = `${pressureMmHg} мм рт.ст.`;
+    document.getElementById('wind').textContent = `${windSpeed} м/с`;
+    document.getElementById('cloudcover').textContent = `${cloudCover}%`;
     
-    // Луна
-    const moonPhase = getMoonPhase();
-    document.getElementById('moon-phase').textContent = moonPhase.phase;
-    document.getElementById('moon-illumination').textContent = moonPhase.illumination;
+    const moon = getMoonPhase();
+    document.getElementById('moon-phase').textContent = moon.phase;
+    document.getElementById('moon-illumination').textContent = moon.illumination;
     
-    // Индекс клёва
-    const fishingIndex = calculateFishingIndex(fishType, current, fishPreferences[fishType]);
-    displayFishingIndex(fishingIndex);
+    const index = calculateIndex(fishType, {
+        temperature_2m: tempCelsius,
+        pressure_msl: pressureMmHg,
+        cloud_cover: cloudCover,
+        wind_speed_10m: windSpeed
+    }, fishPreferences[fishType]);
     
-    // Рекомендации
-    const recommendation = createRecommendation(fishType, current.temperature_2m, current.pressure_msl, current.cloud_cover, moonPhase.phase);
-    document.getElementById('recommendation').innerHTML = recommendation;
+    displayIndex(index);
     
-    // Местное время
+    const rec = createRecommendation(fishType, tempCelsius, pressureMmHg, cloudCover, moon.phase);
+    document.getElementById('recommendation').innerHTML = rec;
+    
     document.getElementById('local-time').textContent = getLocalTime();
     
-    // Прогноз на несколько дней
     if (selectedDays > 1) {
-        displayMultiDayForecast(daily, fishType);
+        displayMultiDay(weather.list, fishType);
     }
     
-    // Показываем секцию
     resultsSection.classList.remove('hidden');
     resultsSection.classList.add('fade-in');
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
-// === Создание рекомендаций ===
-function createRecommendation(fishType, temp, pressure, cloudcover, moonPhase) {
-    const fishData = fishPreferences[fishType];
-    const tempDiff = temp - fishData.tempOptimal;
-    const pressureDiff = pressure - fishData.pressureOptimal;
+function createRecommendation(fish, temp, pressure, cloud, moon) {
+    const f = fishPreferences[fish];
+    let r = `<strong>🐟 ${f.description}</strong><br><br>`;
     
-    let rec = `<strong>🐟 ${fishData.description}</strong><br><br>`;
+    const tDiff = temp - f.tempOptimal;
+    const pDiff = pressure - f.pressureOptimal;
     
-    if (Math.abs(tempDiff) <= 5) rec += '✅ Температура благоприятная. ';
-    else if (tempDiff > 5) rec += '🌡️ Вода теплее нормы. ';
-    else rec += '❄️ Вода прохладнее нормы. ';
+    r += Math.abs(tDiff) <= 5 ? '✅ Температура благоприятная. ' : tDiff > 0 ? '🌡️ Вода теплее нормы. ' : '❄️ Вода прохладнее нормы. ';
+    r += Math.abs(pDiff) <= 5 ? '✅ Давление в норме. ' : pDiff > 0 ? '📈 Давление повышенное. ' : '📉 Давление пониженное. ';
+    r += cloud > 70 ? '☁️ Пасмурно — рыба смелее. ' : cloud < 30 ? '☀️ Ясно — ищите в тени. ' : '⛅ Переменная облачность. ';
+    r += `🌙 Луна: ${moon}.`;
     
-    if (Math.abs(pressureDiff) <= 5) rec += '✅ Давление в норме. ';
-    else if (pressureDiff > 5) rec += '📈 Давление повышенное. ';
-    else rec += '📉 Давление пониженное. ';
-    
-    if (cloudcover > 70) rec += '☁️ Пасмурно — рыба смелее. ';
-    else if (cloudcover < 30) rec += '☀️ Ясно — ищите в тени. ';
-    else rec += '⛅ Переменная облачность. ';
-    
-    rec += `🌙 Луна: ${moonPhase}.`;
-    return rec;
+    return r;
 }
 
-// === Расчёт индекса клёва ===
-function calculateFishingIndex(fishType, current, fishData) {
-    let index = 50;
-    const tempDiff = Math.abs(current.temperature_2m - fishData.tempOptimal);
-    const pressureDiff = Math.abs(current.pressure_msl - fishData.pressureOptimal);
+function calculateIndex(fish, current, f) {
+    let i = 50;
+    const tDiff = Math.abs(current.temperature_2m - f.tempOptimal);
+    const pDiff = Math.abs(current.pressure_msl - f.pressureOptimal);
     
-    if (tempDiff <= fishData.tempTolerance) index += 20;
-    else if (tempDiff <= fishData.tempTolerance * 2) index += 10;
-    else index -= 20;
+    if (tDiff <= f.tempTolerance) i += 20;
+    else if (tDiff <= f.tempTolerance * 2) i += 10;
+    else i -= 20;
     
-    if (pressureDiff <= 5) index += 20;
-    else if (pressureDiff <= 10) index += 10;
-    else index -= 20;
+    if (pDiff <= 5) i += 20;
+    else if (pDiff <= 10) i += 10;
+    else i -= 20;
     
-    if (current.cloud_cover >= 40 && current.cloud_cover <= 70) index += 10;
-    else if (current.cloud_cover > 80) index += 5;
+    if (current.cloud_cover >= 40 && current.cloud_cover <= 70) i += 10;
+    else if (current.cloud_cover > 80) i += 5;
     
-    if (current.wind_speed_10m <= 5) index += 10;
-    else if (current.wind_speed_10m <= 10) index += 5;
-    else index -= 10;
+    if (current.wind_speed_10m <= 5) i += 10;
+    else if (current.wind_speed_10m <= 10) i += 5;
+    else i -= 10;
     
-    return Math.max(0, Math.min(100, index));
+    return Math.max(0, Math.min(100, i));
 }
 
-// === Отображение индекса ===
-function displayFishingIndex(index) {
-    const indexEl = document.getElementById('fishing-index');
-    const progress = document.getElementById('index-progress');
+function displayIndex(index) {
+    const el = document.getElementById('fishing-index');
+    const bar = document.getElementById('index-progress');
     const label = document.getElementById('index-label');
     
-    indexEl.textContent = index;
-    progress.style.width = `${index}%`;
+    el.textContent = index;
+    bar.style.width = `${index}%`;
     
-    indexEl.classList.remove('excellent', 'good', 'medium', 'poor');
-    label.classList.remove('excellent', 'good', 'medium', 'poor');
+    el.className = 'index-value';
+    label.className = 'index-label';
     
     if (index >= 76) {
-        indexEl.classList.add('excellent');
+        el.classList.add('excellent');
         label.textContent = 'Отличный клёв';
         label.classList.add('excellent');
     } else if (index >= 51) {
-        indexEl.classList.add('good');
+        el.classList.add('good');
         label.textContent = 'Хороший клёв';
         label.classList.add('good');
     } else if (index >= 26) {
-        indexEl.classList.add('medium');
+        el.classList.add('medium');
         label.textContent = 'Средний клёв';
         label.classList.add('medium');
     } else {
-        indexEl.classList.add('poor');
+        el.classList.add('poor');
         label.textContent = 'Плохой клёв';
         label.classList.add('poor');
     }
 }
 
-// === Прогноз на несколько дней ===
-function displayMultiDayForecast(daily, fishType) {
+function displayMultiDay(list, fishType) {
     let section = document.querySelector('.multi-day-forecast');
     
     if (!section) {
@@ -225,117 +205,124 @@ function displayMultiDayForecast(daily, fishType) {
     }
     
     section.innerHTML = `<h3>📅 Прогноз на ${selectedDays} ${getDayDeclension(selectedDays)}</h3><div class="days-grid"></div>`;
-    
     const grid = section.querySelector('.days-grid');
     
-    for (let i = 0; i < selectedDays && i < daily.time.length; i++) {
-        const date = new Date(daily.time[i]);
-        const dayName = i === 0 ? 'Сегодня' : i === 1 ? 'Завтра' : date.toLocaleDateString('ru', { weekday: 'short', day: 'numeric', month: 'short' });
+    const days = {};
+    list.forEach(item => {
+        const date = new Date(item.dt * 1000);
+        const dateStr = date.toLocaleDateString('ru');
         
-        const tempMax = Math.round(daily.temperature_2m_max[i]);
-        const tempMin = Math.round(daily.temperature_2m_min[i]);
-        const wind = Math.round(daily.wind_speed_10m_max[i]);
+        if (!days[dateStr]) {
+            days[dateStr] = {
+                date: date,
+                temps: [],
+                pressures: [],
+                winds: []
+            };
+        }
         
-        const dayIndex = calculateDailyIndex(fishType, tempMax, tempMin, wind);
+        days[dateStr].temps.push(item.main.temp);
+        days[dateStr].pressures.push(item.press * 0.750062);
+        days[dateStr].winds.push(item.wind.speed);
+    });
+    
+    let count = 0;
+    for (const dateStr in days) {
+        if (count >= selectedDays) break;
+        
+        const day = days[dateStr];
+        const maxTemp = Math.max(...day.temps);
+        const minTemp = Math.min(...day.temps);
+        const avgPressure = day.pressures.reduce((a, b) => a + b, 0) / day.pressures.length;
+        const maxWind = Math.max(...day.winds);
+        
+        const dayName = count === 0 ? 'Сегодня' : count === 1 ? 'Завтра' : day.date.toLocaleDateString('ru', { weekday: 'short', day: 'numeric', month: 'short' });
+        
+        const index = calculateDailyIndex(fishType, maxTemp, minTemp, avgPressure, maxWind);
         
         const card = document.createElement('div');
         card.className = 'day-card';
         card.innerHTML = `
             <div class="day-name">${dayName}</div>
-            <div class="day-index ${getIndexClass(dayIndex)}">${dayIndex}</div>
-            <div class="day-temp">${tempMax}° / ${tempMin}°</div>
-            <div class="day-wind">💨 ${wind} м/с</div>
+            <div class="day-index ${getIndexClass(index)}">${index}</div>
+            <div class="day-temp">${Math.round(maxTemp)}° / ${Math.round(minTemp)}°</div>
+            <div class="day-wind">💨 ${Math.round(maxWind)} м/с</div>
         `;
         
         grid.appendChild(card);
+        count++;
     }
 }
 
-function calculateDailyIndex(fishType, tempMax, tempMin, wind) {
-    const fishData = fishPreferences[fishType];
-    let index = 50;
-    const tempAvg = (tempMax + tempMin) / 2;
-    const tempDiff = Math.abs(tempAvg - fishData.tempOptimal);
+function calculateDailyIndex(fish, maxTemp, minTemp, pressure, wind) {
+    const f = fishPreferences[fish];
+    let i = 50;
+    const avgTemp = (maxTemp + minTemp) / 2;
+    const tempDiff = Math.abs(avgTemp - f.tempOptimal);
+    const pressureDiff = Math.abs(pressure - f.pressureOptimal);
     
-    if (tempDiff <= fishData.tempTolerance) index += 30;
-    else if (tempDiff <= fishData.tempTolerance * 2) index += 15;
-    else index -= 20;
+    if (tempDiff <= f.tempTolerance) i += 30;
+    else if (tempDiff <= f.tempTolerance * 2) i += 15;
+    else i -= 20;
     
-    if (wind <= 5) index += 15;
-    else if (wind <= 10) index += 5;
-    else index -= 10;
+    if (pressureDiff <= 5) i += 25;
+    else if (pressureDiff <= 10) i += 10;
+    else i -= 20;
     
-    return Math.max(0, Math.min(100, index));
+    if (wind <= 5) i += 10;
+    else if (wind <= 10) i += 5;
+    else i -= 10;
+    
+    return Math.max(0, Math.min(100, i));
 }
 
-// === Вспомогательные функции ===
-function showStatus(message, type) {
-    statusMessage.textContent = message;
+function getIndexClass(i) {
+    if (i >= 76) return 'excellent';
+    if (i >= 51) return 'good';
+    if (i >= 26) return 'medium';
+    return 'poor';
+}
+
+function showStatus(msg, type) {
+    statusMessage.textContent = msg;
     statusMessage.className = `status-message show ${type}`;
     setTimeout(() => statusMessage.classList.remove('show'), 5000);
 }
 
-function getFishEmoji(fish) {
-    const emojis = {
-        щука: '🦈', окунь: '🐠', карп: '🐟', плотва: '🐠',
-        судак: '🦈', карась: '🐠', лещ: '🐟', сом: '🐟',
-        форель: '🐠', налим: '🦈', жерех: '🐟', голавль: '🐠',
-        язь: '🐟', линь: '🐠', сазан: '🐟'
-    };
-    return emojis[fish] || '🐟';
+function getFishEmoji(f) {
+    const e = { щука:'🦈', окунь:'🐠', карп:'🐟', плотва:'🐠', судак:'🦈', карась:'🐠', лещ:'🐟', сом:'🐟', форель:'🐠', налим:'🦈', жерех:'🐟', голавль:'🐠', язь:'🐟', линь:'🐠', сазан:'🐟' };
+    return e[f] || '🐟';
 }
 
-function capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function getLocalTime() {
-    const now = new Date();
-    const days = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-    const months = ['янв.', 'февр.', 'март', 'апр.', 'май', 'июнь', 'июль', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
-    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}, ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const n = new Date();
+    const d = ['вс','пн','вт','ср','чт','пт','сб'];
+    const m = ['янв.','февр.','март','апр.','май','июнь','июль','авг.','сент.','окт.','нояб.','дек.'];
+    return `${d[n.getDay()]}, ${n.getDate()} ${m[n.getMonth()]}, ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
 }
 
 function getMoonPhase() {
-    const now = new Date();
-    const year = now.getFullYear();
-    let month = now.getMonth() + 1;
-    const day = now.getDate();
-    
-    if (month < 3) { year--; month += 12; }
-    month++;
-    
-    const c = 365.25 * year;
-    const e = 30.6 * month;
-    const jd = c + e + day - 694039.09;
-    const cycle = jd / 29.5305882;
-    const b = Math.round((cycle - Math.floor(cycle)) * 8) % 8;
-    
+    const n = new Date();
+    let y = n.getFullYear(), mo = n.getMonth() + 1, d = n.getDate();
+    if (mo < 3) { y--; mo += 12; }
+    mo++;
+    const jd = (365.25 * y) + (30.6 * mo) + d - 694039.09;
+    const b = Math.round(((jd / 29.5305882) % 1) * 8) % 8;
     const phases = [
-        { phase: 'Новолуние', illumination: 0 },
-        { phase: 'Растущий серп', illumination: 25 },
-        { phase: 'Первая четверть', illumination: 50 },
-        { phase: 'Растущая луна', illumination: 75 },
-        { phase: 'Полнолуние', illumination: 100 },
-        { phase: 'Убывающая луна', illumination: 75 },
-        { phase: 'Последняя четверть', illumination: 50 },
-        { phase: 'Убывающий серп', illumination: 25 }
+        {phase:'Новолуние', illumination:0}, {phase:'Растущий серп', illumination:25},
+        {phase:'Первая четверть', illumination:50}, {phase:'Растущая', illumination:75},
+        {phase:'Полнолуние', illumination:100}, {phase:'Убывающая', illumination:75},
+        {phase:'Последняя четверть', illumination:50}, {phase:'Убывающий серп', illumination:25}
     ];
-    
     return phases[b];
 }
 
-function getIndexClass(index) {
-    if (index >= 76) return 'excellent';
-    if (index >= 51) return 'good';
-    if (index >= 26) return 'medium';
-    return 'poor';
-}
-
-function getDayDeclension(days) {
-    if (days === 1) return 'день';
-    if (days >= 2 && days <= 4) return 'дня';
+function getDayDeclension(d) {
+    if (d === 1) return 'день';
+    if (d >= 2 && d <= 4) return 'дня';
     return 'дней';
 }
 
-console.log('🎣 Прогноз клёва рыбы загружен!');
+console.log('🎣 Прогноз клёва рыбы загружен! API: OpenWeather');
