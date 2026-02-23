@@ -7,6 +7,9 @@ const resultsSection = document.getElementById('results-section');
 
 let selectedDays = 1;
 
+// === Твой Vercel proxy URL ===
+const VERCEL_PROXY = 'https://prognoz-klyova.vercel.app/api/weather';
+
 // === Кнопки периода ===
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -35,43 +38,16 @@ const fishPreferences = {
     сазан: { tempOptimal: 22, tempTolerance: 10, pressureOptimal: 755, description: "Крупный и сильный. Активен в тёплой воде, предпочитает тихие заводи." }
 };
 
-// === Fetch с CORS proxy ===
-async function fetchWithProxy(url, maxRetries = 3) {
-    const corsProxies = [
-        'https://api.allorigins.win/get?url=',
-        'https://corsproxy.io/?',
-        'https://api.codetabs.com/v1/proxy?quest='
-    ];
+// === Fetch через твой Vercel proxy ===
+async function fetchWithProxy(url) {
+    const proxyUrl = `${VERCEL_PROXY}?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
     
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        for (let proxy of corsProxies) {
-            try {
-                const proxyUrl = proxy + encodeURIComponent(url);
-                const response = await fetch(proxyUrl, { 
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' },
-                    timeout: 10000
-                });
-                
-                if (!response.ok) continue;
-                
-                const data = await response.json();
-                
-                // Разные proxy возвращают данные по-разному
-                if (data.contents) return JSON.parse(data.contents);
-                if (data.body) return JSON.parse(data.body);
-                if (data.results) return data;
-                
-                return data;
-                
-            } catch (e) {
-                console.log(`Proxy ${proxy} не сработал (попытка ${attempt + 1})`);
-                continue;
-            }
-        }
+    if (!response.ok) {
+        throw new Error(`Proxy error: ${response.status}`);
     }
     
-    throw new Error('Не удалось получить данные через CORS proxy');
+    return await response.json();
 }
 
 // === Обработка формы ===
@@ -101,7 +77,7 @@ form.addEventListener('submit', async (e) => {
         const { latitude, longitude, name, country } = geoData.results[0];
         
         // Шаг 2: Погода
-        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,pressure_msl,cloud_cover,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,pressure_msl_mean,wind_speed_10m_max&timezone=auto&forecast_days=${selectedDays}`;
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m,weather_code&hourly=temperature_2m,pressure_msl,cloud_cover,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,pressure_msl_mean,wind_speed_10m_max&timezone=auto&forecast_days=${selectedDays}`;
         
         const weatherData = await fetchWithProxy(weatherUrl);
         
@@ -122,7 +98,6 @@ form.addEventListener('submit', async (e) => {
 
 // === Иконки погоды ===
 function getWeatherIcon(code) {
-    // Open-Meteo weather codes
     if (code === 0) return '☀️';
     if (code >= 1 && code <= 3) return code === 1 ? '🌤️' : code === 2 ? '⛅' : '☁️';
     if (code >= 45 && code <= 48) return '🌫️';
@@ -365,4 +340,4 @@ function getDayDeclension(d) {
     return 'дней';
 }
 
-console.log('🎣 Прогноз клёва рыбы загружен! API: Open-Meteo (CORS proxy)');
+console.log('🎣 Прогноз клёва рыбы загружен! API: Open-Meteo + Vercel Proxy');
