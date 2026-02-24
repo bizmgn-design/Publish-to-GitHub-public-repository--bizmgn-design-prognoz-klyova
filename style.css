@@ -76,10 +76,11 @@ h1 {
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
-/* === ФИКС: Белый фон поля города === */
+/* === ФИКС: Поле ввода города === */
 #city-input {
     background: rgba(255, 255, 255, 0.05) !important;
     color: #ffffff !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
 }
 
 #city-input::placeholder {
@@ -91,6 +92,7 @@ h1 {
 #city-input:-webkit-autofill:focus {
     -webkit-box-shadow: 0 0 0 100px rgba(255, 255, 255, 0.05) inset !important;
     -webkit-text-fill-color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.05) !important;
 }
 
 #fish-type option {
@@ -99,7 +101,7 @@ h1 {
 }
 
 /* === Кнопка === */
-.btn-submit {
+.btn-submit, .submit-btn {
     width: 100%;
     padding: 16px;
     background: linear-gradient(135deg, #4CAF50, #00bcd4);
@@ -116,17 +118,17 @@ h1 {
     gap: 8px;
 }
 
-.btn-submit:hover {
+.btn-submit:hover, .submit-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
 }
 
 /* === Кнопки периода === */
-.period-buttons {
+.forecast-period, .period-buttons {
     display: flex;
     gap: 10px;
-    justify-content: center;
-    margin-top: 20px;
+    justify-content: flex-start;
+    margin-top: 15px;
     flex-wrap: wrap;
 }
 
@@ -152,12 +154,13 @@ h1 {
 }
 
 /* === Результаты === */
-.results {
+.results-section {
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
     border-radius: 16px;
     padding: 30px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 30px;
 }
 
 .location-title {
@@ -234,7 +237,7 @@ h1 {
 .index-value.medium { color: #FFC107; }
 .index-value.poor { color: #f44336; }
 
-.progress-bar {
+.index-progress {
     width: 100%;
     height: 12px;
     background: rgba(255, 255, 255, 0.1);
@@ -243,14 +246,14 @@ h1 {
     margin: 15px 0;
 }
 
-.progress-fill {
+.index-progress-bar {
     height: 100%;
     background: linear-gradient(90deg, #f44336, #FFC107, #8BC34A, #4CAF50);
     transition: width 0.5s ease;
 }
 
 /* === Рекомендации === */
-.recommendations {
+.recommendation-section {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     padding: 20px;
@@ -258,7 +261,7 @@ h1 {
     line-height: 1.8;
 }
 
-.recommendations h3 {
+.recommendation-section h3 {
     color: #4CAF50;
     margin-bottom: 15px;
 }
@@ -308,6 +311,18 @@ h1 {
     color: rgba(255, 255, 255, 0.8);
 }
 
+/* === Луна === */
+.moon-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.moon-section h3 {
+    margin-bottom: 10px;
+}
+
 /* === Статус === */
 .status-message {
     padding: 15px 20px;
@@ -350,9 +365,9 @@ footer a:hover { text-decoration: underline; }
 /* === Адаптив === */
 @media (max-width: 600px) {
     h1 { font-size: 2rem; }
-    .form-container, .results { padding: 20px; }
-    .period-buttons { flex-direction: column; }
-    .period-btn { width: 100%; }
+    .form-container, .results-section { padding: 20px; }
+    .period-buttons { flex-direction: row; }
+    .period-btn { flex: 1; min-width: 120px; }
     .weather-grid { grid-template-columns: repeat(2, 1fr); }
     .days-grid { grid-template-columns: 1fr; }
 }
