@@ -7,7 +7,7 @@ const resultsSection = document.getElementById('results-section');
 
 let selectedDays = 1;
 
-// === Твой Vercel proxy URL ===
+// === Твой Vercel proxy URL (ИСПРАВЛЕНО: без пробелов) ===
 const VERCEL_PROXY = 'https://publish-to-git-hub-public-repositor-liard.vercel.app/api/weather';
 
 // === Кнопки периода ===
@@ -65,7 +65,7 @@ form.addEventListener('submit', async (e) => {
     showStatus('⏳ Загрузка прогноза...', 'success');
     
     try {
-        // Шаг 1: Геокодинг
+        // Шаг 1: Геокодинг (ИСПРАВЛЕНО: без пробелов)
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru&format=json`;
         const geoData = await fetchWithProxy(geoUrl);
         
@@ -76,7 +76,7 @@ form.addEventListener('submit', async (e) => {
         
         const { latitude, longitude, name, country } = geoData.results[0];
         
-        // Шаг 2: Погода
+        // Шаг 2: Погода (ИСПРАВЛЕНО: без пробелов)
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m,weather_code&hourly=temperature_2m,pressure_msl,cloud_cover,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,pressure_msl_mean,wind_speed_10m_max&timezone=auto&forecast_days=${selectedDays}`;
         
         const weatherData = await fetchWithProxy(weatherUrl);
