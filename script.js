@@ -8,7 +8,8 @@ const resultsSection = document.getElementById('results-section');
 let selectedDays = 1;
 
 // === Твой Vercel proxy URL ===
-const VERCEL_PROXY = 'https://publish-to-git-hub-public-repositor-liard.vercel.app/api/weather';
+const VERCEL_PROXY = 'https://prognoz-klyova.vercel.app/api/weather';
+
 // === Кнопки периода ===
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -64,7 +65,7 @@ form.addEventListener('submit', async (e) => {
     showStatus('⏳ Загрузка прогноза...', 'success');
     
     try {
-        // Шаг 1: Геокодинг 
+        // Шаг 1: Геокодинг
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru&format=json`;
         const geoData = await fetchWithProxy(geoUrl);
         
