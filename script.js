@@ -6,8 +6,9 @@ const statusMessage = document.getElementById('status-message');
 const resultsSection = document.getElementById('results-section');
 
 let selectedDays = 1;
-const API_KEY = '088682cd6fe0244781f86dff5f5eacb3';
 
+// === Твой Vercel proxy URL ===
+const VERCEL_PROXY = 'https://publish-to-git-hub-public-repositor-liard.vercel.app/api/weather';
 // === Кнопки периода ===
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -36,6 +37,18 @@ const fishPreferences = {
     сазан: { tempOptimal: 22, tempTolerance: 10, pressureOptimal: 755, description: "Крупный и сильный. Активен в тёплой воде, предпочитает тихие заводи." }
 };
 
+// === Fetch через твой Vercel proxy ===
+async function fetchWithProxy(url) {
+    const proxyUrl = `${VERCEL_PROXY}?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    
+    if (!response.ok) {
+        throw new Error(`Proxy error: ${response.status}`);
+    }
+    
+    return await response.json();
+}
+
 // === Обработка формы ===
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -48,76 +61,67 @@ form.addEventListener('submit', async (e) => {
         return;
     }
     
-    const daysToRequest = Math.min(selectedDays, 5);
-    
     showStatus('⏳ Загрузка прогноза...', 'success');
     
     try {
-        const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric&lang=ru&cnt=${daysToRequest * 8}`;
+        // Шаг 1: Геокодинг 
+        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru&format=json`;
+        const geoData = await fetchWithProxy(geoUrl);
         
-        const response = await fetch(weatherUrl);
-        
-        if (!response.ok) {
-            throw new Error(`Ошибка API: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.list || data.list.length === 0) {
+        if (!geoData.results || geoData.results.length === 0) {
             showStatus('❌ Город не найден', 'error');
             return;
         }
         
+        const { latitude, longitude, name, country } = geoData.results[0];
+        
+        // Шаг 2: Погода
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m,weather_code&hourly=temperature_2m,pressure_msl,cloud_cover,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,pressure_msl_mean,wind_speed_10m_max&timezone=auto&forecast_days=${selectedDays}`;
+        
+        const weatherData = await fetchWithProxy(weatherUrl);
+        
+        // Шаг 3: Отображаем
         displayForecast({
-            location: `${data.city.name}, ${data.city.country}`,
-            weather: data,
-            fishType,
-            requestedDays: selectedDays,
-            actualDays: daysToRequest
+            location: `${name}, ${country}`,
+            weather: weatherData,
+            fishType
         });
         
         showStatus('✅ Прогноз загружен!', 'success');
         
     } catch (error) {
         console.error('Ошибка:', error);
-        showStatus('❌ Ошибка при загрузке. Проверьте название города.', 'error');
+        showStatus('❌ Ошибка при загрузке. Попробуйте позже.', 'error');
     }
 });
 
 // === Иконки погоды ===
-function getWeatherIcon(iconCode) {
-    const iconMap = {
-        '01d': '☀️', '01n': '🌙',
-        '02d': '⛅', '02n': '☁️',
-        '03d': '☁️', '03n': '☁️',
-        '04d': '☁️', '04n': '☁️',
-        '09d': '🌧️', '09n': '🌧️',
-        '10d': '🌦️', '10n': '🌧️',
-        '11d': '⛈️', '11n': '⛈️',
-        '13d': '🌨️', '13n': '🌨️',
-        '50d': '🌫️', '50n': '🌫️'
-    };
-    return iconMap[iconCode] || '🌤️';
+function getWeatherIcon(code) {
+    if (code === 0) return '☀️';
+    if (code >= 1 && code <= 3) return code === 1 ? '🌤️' : code === 2 ? '⛅' : '☁️';
+    if (code >= 45 && code <= 48) return '🌫️';
+    if (code >= 51 && code <= 67) return '🌧️';
+    if (code >= 71 && code <= 77) return '🌨️';
+    if (code >= 80 && code <= 82) return '🌦️';
+    if (code >= 85 && code <= 86) return '🌨️';
+    if (code >= 95 && code <= 99) return '⛈️';
+    return '🌤️';
 }
 
 // === Отображение прогноза ===
 function displayForecast(data) {
-    const { location, weather, fishType, requestedDays, actualDays } = data;
-    const current = weather.list[0];
+    const { location, weather, fishType } = data;
+    const current = weather.current;
+    const daily = weather.daily;
     
-    const pressureHpa = current.main.pressure;
-    const pressureMmHg = Math.round(pressureHpa * 0.750062);
-    const tempCelsius = Math.round(current.main.temp);
-    const windSpeed = Math.round(current.wind.speed);
-    const cloudCover = current.clouds.all;
-    const weatherIcon = getWeatherIcon(current.weather[0].icon);
+    const pressureMmHg = Math.round(current.pressure_msl * 0.750062);
+    const tempCelsius = Math.round(current.temperature_2m);
+    const windSpeed = Math.round(current.wind_speed_10m);
+    const cloudCover = current.cloud_cover;
+    const weatherIcon = getWeatherIcon(current.weather_code || 0);
     
     document.getElementById('location-title').textContent = `${getFishEmoji(fishType)} ${capitalize(fishType)} • ${location}`;
-    
-    const daysText = requestedDays > actualDays ? 
-        `прогноз на ${actualDays} ${getDayDeclension(actualDays)} (макс. доступно)` :
-        `прогноз на ${requestedDays} ${getDayDeclension(requestedDays)}`;
-    document.getElementById('forecast-time').textContent = `${getLocalTime()} • ${daysText}`;
+    document.getElementById('forecast-time').textContent = `${getLocalTime()} • прогноз на ${selectedDays} ${getDayDeclension(selectedDays)}`;
     
     document.getElementById('temperature').textContent = `${weatherIcon} ${tempCelsius}°C`;
     document.getElementById('pressure').textContent = `📉 ${pressureMmHg} мм рт.ст.`;
@@ -142,8 +146,8 @@ function displayForecast(data) {
     
     document.getElementById('local-time').textContent = getLocalTime();
     
-    if (actualDays > 1) {
-        displayMultiDay(weather.list, fishType, actualDays);
+    if (selectedDays > 1) {
+        displayMultiDay(daily, fishType, selectedDays);
     }
     
     resultsSection.classList.remove('hidden');
@@ -222,8 +226,8 @@ function displayIndex(index) {
     }
 }
 
-// === Прогноз на несколько дней (ДОБАВЛЕНО!) ===
-function displayMultiDay(list, fishType, maxDays) {
+// === Прогноз на несколько дней ===
+function displayMultiDay(daily, fishType, maxDays) {
     let section = document.querySelector('.multi-day-forecast');
     
     if (!section) {
@@ -235,45 +239,18 @@ function displayMultiDay(list, fishType, maxDays) {
     section.innerHTML = `<h3>📅 Прогноз на ${maxDays} ${getDayDeclension(maxDays)}</h3><div class="days-grid"></div>`;
     const grid = section.querySelector('.days-grid');
     
-    const days = {};
-    list.forEach(item => {
-        const date = new Date(item.dt * 1000);
-        const dateStr = date.toLocaleDateString('ru');
+    for (let i = 0; i < maxDays && i < daily.time.length; i++) {
+        const date = new Date(daily.time[i]);
+        const dayName = i === 0 ? 'Сегодня' : i === 1 ? 'Завтра' : date.toLocaleDateString('ru', { weekday: 'short', day: 'numeric', month: 'short' });
         
-        if (!days[dateStr]) {
-            days[dateStr] = {
-                date: date,
-                temps: [],
-                pressures: [],
-                winds: [],
-                icons: []
-            };
-        }
+        const maxTemp = Math.round(daily.temperature_2m_max[i]);
+        const minTemp = Math.round(daily.temperature_2m_min[i]);
+        const pressureMmHg = Math.round(daily.pressure_msl_mean[i] * 0.750062);
+        const wind = Math.round(daily.wind_speed_10m_max[i]);
+        const weatherCode = daily.weather_code[i];
+        const weatherIcon = getWeatherIcon(weatherCode);
         
-        days[dateStr].temps.push(item.main.temp);
-        days[dateStr].pressures.push(item.main.pressure);
-        days[dateStr].winds.push(item.wind.speed);
-        days[dateStr].icons.push(item.weather[0].icon);
-    });
-    
-    let count = 0;
-    for (const dateStr in days) {
-        if (count >= maxDays) break;
-        
-        const day = days[dateStr];
-        const maxTemp = Math.max(...day.temps);
-        const minTemp = Math.min(...day.temps);
-        
-        const avgPressureHpa = day.pressures.reduce((a, b) => a + b, 0) / day.pressures.length;
-        const avgPressureMmHg = Math.round(avgPressureHpa * 0.750062);
-        
-        const maxWind = Math.max(...day.winds);
-        const mainIcon = day.icons[0];
-        
-        const dayName = count === 0 ? 'Сегодня' : count === 1 ? 'Завтра' : day.date.toLocaleDateString('ru', { weekday: 'short', day: 'numeric', month: 'short' });
-        
-        const index = calculateDailyIndex(fishType, maxTemp, minTemp, avgPressureHpa, maxWind);
-        const weatherIcon = getWeatherIcon(mainIcon);
+        const index = calculateDailyIndex(fishType, maxTemp, minTemp, pressureMmHg, wind);
         
         const card = document.createElement('div');
         card.className = 'day-card';
@@ -281,24 +258,21 @@ function displayMultiDay(list, fishType, maxDays) {
             <div class="day-name">${dayName}</div>
             <div class="day-icon" style="font-size: 2rem; margin: 10px 0;">${weatherIcon}</div>
             <div class="day-index ${getIndexClass(index)}" style="font-size: 1.5rem; font-weight: bold; margin: 10px 0;">${index}</div>
-            <div class="day-temp" style="margin: 5px 0;">${Math.round(maxTemp)}° / ${Math.round(minTemp)}°</div>
-            <div class="day-wind" style="margin: 5px 0;">💨 ${Math.round(maxWind)} м/с</div>
-            <div class="day-pressure" style="margin: 5px 0; color: #888; font-size: 0.9rem;">📉 ${avgPressureMmHg} мм</div>
+            <div class="day-temp" style="margin: 5px 0;">${maxTemp}° / ${minTemp}°</div>
+            <div class="day-wind" style="margin: 5px 0;">💨 ${wind} м/с</div>
+            <div class="day-pressure" style="margin: 5px 0; color: #888; font-size: 0.9rem;">📉 ${pressureMmHg} мм</div>
         `;
         
         grid.appendChild(card);
-        count++;
     }
 }
 
-// === Расчёт индекса для дня ===
 function calculateDailyIndex(fish, maxTemp, minTemp, pressure, wind) {
     const f = fishPreferences[fish];
     let i = 50;
     const avgTemp = (maxTemp + minTemp) / 2;
     const tempDiff = Math.abs(avgTemp - f.tempOptimal);
-    const pressureMmHg = pressure * 0.750062;
-    const pressureDiff = Math.abs(pressureMmHg - f.pressureOptimal);
+    const pressureDiff = Math.abs(pressure - f.pressureOptimal);
     
     if (tempDiff <= f.tempTolerance) i += 30;
     else if (tempDiff <= f.tempTolerance * 2) i += 15;
@@ -365,4 +339,4 @@ function getDayDeclension(d) {
     return 'дней';
 }
 
-console.log('🎣 Прогноз клёва рыбы загружен! API: OpenWeather (макс. 5 дней)');
+console.log('🎣 Прогноз клёва рыбы загружен! API: Open-Meteo + Vercel Proxy');
