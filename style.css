@@ -377,3 +377,15 @@ footer a:hover { text-decoration: underline; }
 }
 
 .hidden { display: none; }
+/* === Кнопка обратной связи === */
+.feedback-link {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.feedback-link:hover {
+    color: #4CAF50;
+    text-decoration: underline;
+}
