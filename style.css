@@ -30,8 +30,9 @@ h1 {
 
 .subtitle {
     text-align: center;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.5);  /* Менее заметный */
     margin-bottom: 40px;
+    font-size: 0.95rem;
 }
 
 /* === Форма === */
@@ -76,23 +77,22 @@ h1 {
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
-/* === ФИКС: Поле ввода города === */
 #city-input {
-    background: rgba(255, 255, 255, 0.05) !important;
+    background: rgba(30, 30, 50, 0.8) !important;  /* Тёмный фон */
     color: #ffffff !important;
     border: 2px solid rgba(255, 255, 255, 0.2) !important;
 }
 
 #city-input::placeholder {
-    color: rgba(255, 255, 255, 0.5) !important;
+    color: rgba(255, 255, 255, 0.4) !important;
 }
 
 #city-input:-webkit-autofill,
 #city-input:-webkit-autofill:hover,
 #city-input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 100px rgba(255, 255, 255, 0.05) inset !important;
+    -webkit-box-shadow: 0 0 0 100px rgba(30, 30, 50, 0.8) inset !important;
     -webkit-text-fill-color: #ffffff !important;
-    background: rgba(255, 255, 255, 0.05) !important;
+    background: rgba(30, 30, 50, 0.8) !important;
 }
 
 #fish-type option {
@@ -124,10 +124,10 @@ h1 {
 }
 
 /* === Кнопки периода === */
-.forecast-period, .period-buttons {
+.forecast-period {
     display: flex;
     gap: 10px;
-    justify-content: flex-start;
+    justify-content: center;  /* По центру! */
     margin-top: 15px;
     flex-wrap: wrap;
 }
@@ -216,7 +216,11 @@ h1 {
 
 /* === Индекс клёва === */
 .fishing-index-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 25px;
     margin: 30px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);  /* Рамка! */
 }
 
 .index-label {
